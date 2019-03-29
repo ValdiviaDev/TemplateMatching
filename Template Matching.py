@@ -1,57 +1,44 @@
 import cv2
 import numpy as np
 
-def DrawRectangles(img, tmpl, TempMatch, minVals):
-    # Size img
-    rowsTmpl, colsTmpl, chan = tmpl.shape
-    rowsMatch, colsMatch = TempMatch.shape
-
-    rowHalf = np.int8(rowsTmpl/2)
-    colHalf = np.int8(colsTmpl/2)
-
-    for i in minVals:
-        cv2.rectangle(TempMatch, (i[0] - rowHalf, i[1] - colHalf), (i[0] + rowHalf, i[1] + colHalf), (255,255,0))
+def DrawRectangles(img, minVals, scale, shapeTrgt ):
+    for i in minVals:      #                                           # #                                                         #
+        cv2.rectangle(img, ((int(i[1]/scale)) -1, int((i[0])/scale) -1), (int(i[1]/scale) + shapeTrgt[1], int(i[0]/scale) + shapeTrgt[0]), (255,255,0))
 
 
-def TemplateMatchingImage(imgStr, tmplStr):
-    img = cv2.imread(imgStr, cv2.IMREAD_GRAYSCALE)
-    tmpl = cv2.imread(tmplStr, cv2.IMREAD_GRAYSCALE)
-    img = np.float64(img)
-    tmpl = np.float64(tmpl)
-
+def TemplateMatchingImage(img_grey, trgt_grey, threshold):
     #Size img
-    rowsImg, colsImg = img.shape
-    rowsTmpl, colsTmpl = tmpl.shape
+    widthImg, heightImg = img_grey.shape
+    widthTrgt, heightTrgt = trgt_grey.shape
 
     #Template matching image
-    tempMatch = np.zeros((rowsImg - rowsTmpl + 1, colsImg - colsTmpl + 1))
-    rowsMatch, colsMatch = tempMatch.shape
+    widthMatch = widthImg - widthTrgt + 1
+    heightMatch = heightImg - heightTrgt + 1
+    tempMatch = np.zeros((widthMatch,heightMatch), dtype=np.float32)
 
     isImgFound = False
 
-    for i in range(0, rowsMatch):
-        for j in range(0, colsMatch):
+    for i in range(0, widthMatch):
+        for j in range(0, heightMatch):
             pixlSum = 0
-            for x in range(0, rowsTmpl):
-                for y in range(0, colsTmpl):
-                    matchPixl = (tmpl[x][y] - img[i + x][j + y]) ** 2
+            for x in range(0, widthTrgt):
+                for y in range(0, widthTrgt):
+                    matchPixl = (trgt_grey[x][y] - img_grey[i + x][j + y]) ** 2
                     pixlSum += matchPixl
             tempMatch[i][j] = pixlSum
-
-    # Check if the image is found
-    if tempMatch.min() / tempMatch.max() < 0.1:
-        isImgFound = True
 
     # Normaliize image
     tempMatch /= tempMatch.max()
     tempMatch *= 255
 
     minVals = []
-    blackest = 100
-    for i in range(0, rowsMatch):
-        for j in range(0, colsMatch):
-            if tempMatch[i][j] <= tempMatch.min():
-                minVals.append([i, j])
+    # Check if the image is found
+    if tempMatch.min() / tempMatch.max() < threshold:
+        isImgFound = True
+        for i in range(0, widthMatch):
+            for j in range(0, heightMatch):
+                if tempMatch[i][j] == tempMatch.min():
+                    minVals.append([i, j])
 
     return tempMatch, isImgFound, minVals
 
@@ -73,24 +60,56 @@ def MakeLabel(size, text, colour):
     return lblImg
 
 
+def GetGreyScaled(img, target, scale):
+    img_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    trgt_grey = cv2.cvtColor(target, cv2.COLOR_BGR2GRAY)
+
+    if scale != 1.0:
+        img_grey = cv2.resize(img_grey,(0,0),fx=scale,fy=scale);
+        trgt_grey = cv2.resize(trgt_grey,(0,0),fx=scale,fy=scale);
+
+    trgt_grey = trgt_grey.astype(np.float32)
+
+    return img_grey, trgt_grey
+
 def execute():
     # Load image and
-    img = cv2.imread("img2.png")
-    tmpl = cv2.imread("t1-img2.png")
+    img = None
+    target = None
+    while img is None:
+        img_dir = input('Set image : ')
+        img = cv2.imread(img_dir)
+        if img is None:
+            print("Image not found, retry.")
 
-    TempMatch, isSuccess, minVals = TemplateMatchingImage("img2.png", "t1-img2.png")
+    while target is None:
+        target_dir = input('Set target : ')
+        target = cv2.imread(target_dir)
+        if target is None:
+            print("Target not found, retry.")
+
+    threshold = 0.0001
+    scale = 0.0
+    while scale == 0.0:
+        scale = float(input(('Set scale :')))
+        if scale == 0.0:
+            print("Scale can't be 0, retry.")
+
+    img_grey, trgt_grey = GetGreyScaled(img, target, scale)
+
+    normMatch, isSuccess, minVals = TemplateMatchingImage( img_grey, trgt_grey, threshold )
 
     outcmImg = DetermineOutcomeImage(isSuccess)
 
     if isSuccess:
-        DrawRectangles(img, tmpl, TempMatch, minVals)
+        DrawRectangles(img, minVals, scale, target.shape)
 
     cv2.imshow("OUTCOME", outcmImg)
 
     # Show the image
-    cv2.imshow("A", np.uint8(TempMatch))
+    cv2.imshow("Target", target)
     cv2.imshow("Original", img)
-    cv2.imshow("Filtered", tmpl)
+    cv2.imshow("Filtered", np.uint8(normMatch))
     cv2.waitKey(0)
 
 execute()
