@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 def DrawRectangles(img, minVals, scale, shapeTrgt ):
-    for i in minVals:      #                                           # #                                                         #
+    for i in minVals:
         cv2.rectangle(img, ((int(i[1]/scale)) -1, int((i[0])/scale) -1), (int(i[1]/scale) + shapeTrgt[1], int(i[0]/scale) + shapeTrgt[0]), (255,255,0))
 
 
@@ -73,25 +73,30 @@ def GetGreyScaled(img, target, scale):
     return img_grey, trgt_grey
 
 def execute():
-    # Load image and
+    # Load image and target image
     img = None
     target = None
+
+    # User introduces image
     while img is None:
         img_dir = input('Set image : ')
         img = cv2.imread(img_dir)
         if img is None:
             print("Image not found, retry.")
 
+    # User introduces target image
     while target is None:
         target_dir = input('Set target : ')
         target = cv2.imread(target_dir)
         if target is None:
             print("Target not found, retry.")
 
-    threshold = 0.0001
+    # User introduces threshold
+    threshold = float(input('Set threshold : (RECOMENDED: 0.01) '))
+
     scale = 0.0
     while scale == 0.0:
-        scale = float(input(('Set scale :')))
+        scale = float(input(('Set scale : ')))
         if scale == 0.0:
             print("Scale can't be 0, retry.")
 
@@ -109,7 +114,7 @@ def execute():
     # Show the image
     cv2.imshow("Target", target)
     cv2.imshow("Original", img)
-    cv2.imshow("Filtered", np.uint8(normMatch))
+    cv2.imshow("Mathing map", np.uint8(normMatch))
     cv2.waitKey(0)
 
 execute()
